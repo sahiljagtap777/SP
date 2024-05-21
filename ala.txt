@@ -1,0 +1,125 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <unordered_map>
+#include <algorithm>
+using namespace std;
+
+unordered_map<string, pair<vector<string>, vector<string>>> macros; // store macro definitions
+
+void processMacro(ifstream &file, string line) {
+    string name = line.substr(6);
+    vector<string> parameters, definition;
+    size_t pos = name.find("&");
+    if (pos != string::npos) {
+        stringstream ss(name.substr(pos));
+        string parameter;
+        while (getline(ss, parameter, ',')) {
+            parameters.push_back(parameter);
+        }
+        name = name.substr(0, pos - 1);
+    }
+    while (getline(file, line) && line != "mend") {
+        definition.push_back(line);
+    }
+    macros[name] = make_pair(parameters, definition);
+}
+
+void pass1(ifstream &file) {
+    string line;
+    while (getline(file, line)) {
+        if (line.find("macro") != string::npos) {
+            processMacro(file, line);
+        }
+    }
+}
+
+void printALA(const unordered_map<string, unordered_map<string, string>>& ala, const string& type) {
+    cout << "\nALA (" << type << "):\n";
+    cout << "Macro Name | Parameter | Positional Parameter\n";
+    for (const auto& macro : ala) {
+        for (const auto& param : macro.second) {
+            cout << macro.first << " | " << param.first << " | " << param.second << endl;
+        }
+    }
+}
+
+void pass2(vector<string> &lines) {
+    unordered_map<string, unordered_map<string, string>> ala_formal_to_positional, ala_actual_to_positional;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        string &currentLine = lines[i];
+        if (currentLine.find("macro") == string::npos && currentLine != ".code" && currentLine != "endp") {
+            for (auto &macro : macros) {
+                size_t pos = currentLine.find(macro.first);
+                if (pos != string::npos) {
+                    auto& macro_data = macro.second;
+                    vector<string>& parameters = macro_data.first;
+                    vector<string> arguments;
+                    if (parameters.size() > 0) {
+                        string arguments_str = currentLine.substr(pos + macro.first.size());
+                        arguments_str.erase(remove(arguments_str.begin(), arguments_str.end(), ' '), arguments_str.end());
+                        stringstream ss(arguments_str);
+                        string argument;
+                        while (getline(ss, argument, ',')) {
+                            arguments.push_back(argument);
+                        }
+                    }
+                    unordered_map<string, string>& ala_formal = ala_formal_to_positional[macro.first];
+                    unordered_map<string, string>& ala_actual = ala_actual_to_positional[macro.first];
+                    for (size_t j = 0; j < parameters.size(); ++j) {
+                        ala_formal[parameters[j]] = to_string(j + 1);
+                        if (j < arguments.size()) {
+                            ala_actual[arguments[j]] = to_string(j + 1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    printALA(ala_formal_to_positional, "Formal vs. Positional");
+    printALA(ala_actual_to_positional, "Actual vs. Positional");
+}
+
+int main() {
+    ifstream file("input_withargs.txt");
+    if (!file.is_open()) {
+        cerr << "Error opening file for reading!" << endl;
+        return 1;
+    }
+    pass1(file);
+    file.clear();
+    file.seekg(0, ios::beg);
+    vector<string> lines;
+    string line;
+    while (getline(file, line)) {
+        lines.push_back(line);
+    }
+    file.close();
+    pass2(lines);
+    return 0;
+}
+
+input code:
+macro ABC &a,&h,&b
+load &a
+sub &h
+add &b
+mend
+
+macro PQR &b,&d
+sub &b
+store &d
+mend
+
+macro XYZ &l,&s,&o
+load &l
+sub &s
+mul &o
+mend
+
+.code
+PQR 2, 3
+XYZ 5, 6, 4
+ABC 8,9,10
+endp

@@ -1,0 +1,141 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class Mp_withoutargs {
+    private static Map<String, List<String>> macros = new HashMap<>();
+    private static Map<Integer, String> mdt = new HashMap<>();
+    private static List<List<String>> mnt = new ArrayList<>();
+
+    public static void pass1(List<String> lines) {
+        int mntIndex = 1;
+        int mdtIndex = 0;
+        boolean inCodeSection = false;
+
+        // Storage in MNT and MDT tables
+        for (String line : lines) {
+            // Check if the line contains "macro"
+            if (line.contains("macro")) {
+                String name = line.substring(5);
+                List<String> temp = new ArrayList<>();
+                temp.add(String.valueOf(mntIndex));
+                temp.add(name);
+                temp.add(String.valueOf(mdtIndex));
+                mnt.add(temp);
+                mntIndex++;
+            } else if (line.equals(".code")) {
+                inCodeSection = true;
+            } else if (line.equals("endp") && inCodeSection) {
+                inCodeSection = false;
+            } else if (!line.isEmpty() && !inCodeSection) {
+                // Store lines in MDT if not in the .code section
+                mdt.put(mdtIndex, line);
+                mdtIndex++;
+            }
+        }
+
+        // Output MNT Table
+        System.out.println("\nMNT Table:");
+        System.out.println("index   | Name        | MDT index");
+        for (List<String> x : mnt) {
+            System.out.println(x.get(0) + "       | " + x.get(1) + "        | " + x.get(2));
+        }
+
+        // Output MDT Table
+        System.out.println("\nMDT Table:");
+        System.out.println("index   | card");
+        for (int i = 0; i < mdtIndex; i++) {
+            System.out.println(i + "       | " + mdt.get(i));
+        }
+    }
+
+    public static void pass2(List<String> lines) {
+        System.out.println("\nExpanded Code is:");
+
+        String currentMacroName = "";
+        List<String> currentMacroDefinition = new ArrayList<>();
+
+        // Extract and store macro definitions
+        for (int i = 0; i < lines.size(); i++) {
+            String currentLine = lines.get(i);
+
+            // Check if the line starts with "macro"
+            if (currentLine.startsWith("macro")) {
+                currentMacroName = currentLine.substring(6);
+                currentMacroDefinition.clear();
+            } else if (currentLine.equals("mend")) {
+                // Store the macro definition in the map
+                macros.put(currentMacroName, new ArrayList<>(currentMacroDefinition));
+            } else if (!currentMacroName.isEmpty()) {
+                // Store lines inside the current macro definition
+                currentMacroDefinition.add(currentLine);
+            }
+        }
+
+        boolean insideMacroCalls = false;
+
+        // Iterate through the lines
+        for (String currentLine : lines) {
+            if (currentLine.equals(".code")) {
+                insideMacroCalls = true;
+            } else if (currentLine.equals("endp")) {
+                insideMacroCalls = false;
+            } else if (insideMacroCalls) {
+                if (macros.containsKey(currentLine)) { // if the current line is a macro call
+                    List<String> currentMacroCode = macros.get(currentLine);
+                    // Output the lines of the expanded macro
+                    for (String macroLine : currentMacroCode) {
+                        System.out.println(macroLine);
+                    }
+                } else { // if not a macro call print statement as it is
+                    System.out.println(currentLine);
+                }
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        try (BufferedReader reader = new BufferedReader(new FileReader("input.txt"))) {
+            List<String> lines = new ArrayList<>();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                lines.add(line);
+            }
+
+            pass1(lines);
+            pass2(lines);
+        } catch (IOException e) {
+            System.err.println("Error opening file for reading!");
+            e.printStackTrace();
+        }
+    }
+}
+
+input code:
+macro ABC
+load a
+sub h
+add b
+mend
+
+macro PQR
+sub b
+store d
+mend
+
+macro XYZ
+load l
+sub s
+store st
+mend
+
+.code
+PQR
+store m,p
+XYZ
+ABC
+endp

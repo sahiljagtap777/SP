@@ -1,0 +1,214 @@
+import java.io.*;
+import java.util.*;
+
+public class Mp_withargs {
+    private static Map<String, Pair<List<String>, List<String>>> macros = new HashMap<>(); // store macro definitions
+    private static Map<Integer, String> mdt = new HashMap<>();
+    private static List<List<String>> mnt = new ArrayList<>();
+
+    public static void pass1(BufferedReader file) // for processing macro definition and storing in mdt and mnt table
+    {
+        int mntIndex = 1;
+        int mdtIndex = 0;
+        boolean inCodeSection = false;
+
+        String line;
+        try {
+            while ((line = file.readLine()) != null) {
+                // Check if the line contains "macro"
+                if (line.contains("macro")) {
+                    String name;
+                    if (line.length() >= 6) {
+                        name = line.substring(6);
+                    } else {
+                        System.err.println("Error: Invalid macro definition.");
+                        return;
+                    }
+                    List<String> parameters = new ArrayList<>();
+                    int pos = name.indexOf("&");
+                    if (pos != -1) {
+                        String parametersStr = name.substring(pos);
+                        StringTokenizer st = new StringTokenizer(parametersStr, ",");
+                        while (st.hasMoreTokens()) {
+                            parameters.add(st.nextToken());
+                        }
+                        name = name.substring(0, pos - 1);
+                    }
+                    List<String> temp = new ArrayList<>(Arrays.asList(String.valueOf(mntIndex), name, String.valueOf(mdtIndex)));
+                    mnt.add(temp);
+                    mntIndex++;
+                    List<String> definition = new ArrayList<>();
+                    while (true) {
+                        if ((line = file.readLine()) == null) break; // Ensure to check readLine() for EOF
+                        if (line.equals("mend")) {
+                            mdt.put(mdtIndex, "mend"); // Store "mend" in MDT
+                            mdtIndex++;
+                            break;
+                        }
+                        definition.add(line);
+                        mdt.put(mdtIndex, line); // Store macro instruction in MDT
+                        mdtIndex++;
+                    }
+                    macros.put(name, new Pair<>(parameters, definition));
+                }
+                else if (line.equals(".code"))
+                {
+                    inCodeSection = true;
+                }
+                else if (line.equals("endp") && inCodeSection)
+                {
+                    inCodeSection = false;
+                }
+                else if (!line.isEmpty() && !inCodeSection)
+                {
+                    // Store lines in MDT if not in the .code section
+                    mdt.put(mdtIndex, line);
+                    mdtIndex++;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // Output MNT Table
+        System.out.println("\nMNT Table:");
+        System.out.println("index   | Name        | MDT index");
+        for (List<String> x : mnt)
+        {
+            System.out.println(x.get(0) + "       | " + x.get(1) + "        | " + x.get(2));
+        }
+
+        // Output MDT Table
+        System.out.println("\nMDT Table:");
+        System.out.println("index   | card");
+        for (int i = 0; i < mdtIndex; i++)
+        {
+            System.out.println(i + "       | " + mdt.get(i));
+        }
+    }
+
+    public static void pass2(List<String> lines) //for expanding macros and replacing their calls with definition
+    {
+        System.out.println("\nExpanded Code is:");
+    
+        boolean insideMacroCalls = false;
+    
+        // Iterate through the lines
+        for (int i = 0; i < lines.size(); ++i)
+        {
+            String currentLine = lines.get(i);
+    
+            if (currentLine.equals(".code"))
+            {
+                insideMacroCalls = true;
+            }
+            else if (currentLine.equals("endp"))
+            {
+                insideMacroCalls = false;
+            }
+            else if (insideMacroCalls && !currentLine.equals("mend")) // Skip "mend" during expansion
+            {
+                boolean expanded = false;
+                for (Map.Entry<String, Pair<List<String>, List<String>>> macro : macros.entrySet()) {
+                    String macroName = macro.getKey();
+                    int pos = currentLine.indexOf(macroName);
+                    if (pos != -1) {
+                        expanded = true;
+                        Pair<List<String>, List<String>> macroData = macro.getValue();
+                        List<String> parameters = macroData.getFirst(); //formal parameters stored
+                        List<String> definition = macroData.getSecond();
+                        List<String> arguments = new ArrayList<>(); //for storing actual parameters
+                        if (!parameters.isEmpty()) {
+                            String argumentsStr = currentLine.substring(pos + macroName.length()); //stores actual parameters
+                            StringTokenizer st = new StringTokenizer(argumentsStr, ",");
+                            while (st.hasMoreTokens()) {
+                                arguments.add(st.nextToken());
+                            }
+                        }
+                        for (int k = 0; k < definition.size(); ++k) {
+                            String line = definition.get(k);
+                            for (int j = 0; j < parameters.size(); ++j) {
+                                int argPos = line.indexOf(parameters.get(j));
+                                if (argPos != -1) {
+                                    line = line.substring(0, argPos) + arguments.get(j) + line.substring(argPos + parameters.get(j).length());
+                                }
+                            }
+                            System.out.println(line);
+                        }
+                    }
+                }
+                if (!expanded) {
+                    System.out.println(currentLine);
+                }
+            }
+        }
+    }
+    
+    public static void main(String[] args) {
+        try (BufferedReader file = new BufferedReader(new FileReader("input_withargs.txt"))) {
+            pass1(file);
+    
+            // Reopen the file for pass2
+            try (BufferedReader file2 = new BufferedReader(new FileReader("input_withargs.txt"))) {
+                List<String> lines = new ArrayList<>();
+                String line;
+                while ((line = file2.readLine()) != null) {
+                    lines.add(line);
+                }
+    
+                pass2(lines);
+            } catch (IOException e) {
+                System.err.println("Error opening file for reading!");
+                e.printStackTrace();
+            }
+    
+        } catch (IOException e) {
+            System.err.println("Error opening file for reading!");
+            e.printStackTrace();
+        }
+    }
+    
+
+
+    private static class Pair<T, U> {
+        private final T first;
+        private final U second;
+
+        public Pair(T first, U second) {
+            this.first = first;
+            this.second = second;
+        }
+
+        public T getFirst() {
+            return first;
+        }
+
+        public U getSecond() {
+            return second;
+        }
+    }
+}
+
+input code:
+macro ABC &a,&h,&b
+load &a
+sub &h
+add &b
+mend
+
+macro PQR &b,&d
+sub &b
+store &d
+mend
+
+macro XYZ &l,&s,&o
+load &l
+sub &s
+mul &o
+mend
+
+.code
+PQR 2, 3
+XYZ 5, 6, 4
+ABC 8,9,10
+endp

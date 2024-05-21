@@ -1,0 +1,53 @@
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.Scanner;
+
+public class Loader {
+    public static void main(String[] args) {
+        int memptr = 0;
+        int memory;
+        int N;
+
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.print("Enter the memory size (in bytes): ");
+        memory = scanner.nextInt();
+        System.out.println();
+
+        System.out.print("Enter no. of files: ");
+        N = scanner.nextInt();
+        System.out.println();
+
+        while (N-- > 0) {
+            // Get the file path and check the size
+            String filePath;
+            System.out.print("Enter the file path: ");
+            filePath = scanner.next();
+            System.out.println();
+
+            try (FileInputStream file = new FileInputStream(filePath)) {
+                long fileSize = file.available();
+
+                // If file is empty then continue to next file
+                if (fileSize == 0) {
+                    System.out.println("File is empty");
+                    continue;
+                }
+
+                System.out.println("File size is: " + fileSize + " bytes");
+
+                if (fileSize <= memory - memptr) {
+                    System.out.println("File is loaded in memory at location " + memptr + " to " + (memptr + (int) fileSize));
+                    memptr += (int) fileSize;
+                } else {
+                    System.out.println("Memory is full");
+                    break;
+                }
+            } catch (IOException e) {
+                System.out.println("Error: Unable to open file.");
+                continue; // Skip to the next iteration of the loop
+            }
+        }
+    }
+}
+

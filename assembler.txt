@@ -1,0 +1,221 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <map>
+
+using namespace std;
+
+class MOT {
+public:
+    string mnemonic;
+    int opcode, operands;
+
+    MOT(string mnemonic, int opcode, int operands) {
+        this->mnemonic = mnemonic;
+        this->opcode = opcode;
+        this->operands = operands;
+    }
+};
+
+class MainTable {
+public:
+    int line;
+    string label;
+    string mnemonic;
+    string operand;
+    int location;
+    string output;
+
+    MainTable(int line, string label, string mnemonic, string operand, int location, string output) {
+        this->line = line;
+        this->label = label;
+        this->mnemonic = mnemonic;
+        this->operand = operand;
+        this->location = location;
+        this->output = output;
+    }
+};
+
+vector<MOT> mot;
+map<string, int> pot;
+map<string, int> mot_table;
+int lineNumber = 1;
+int location_count = 0;
+vector<MainTable> maintable;
+map<string, int> sym_table;
+
+void printMOT() {
+    cout << "\nMOT Table:\n";
+    cout << "Mnemonic\tOpcode\tNo. Of Operands\n";
+    for (auto it : mot) {
+        cout << it.mnemonic << "\t\t" << it.opcode << "\t" << it.operands << "\n";
+    }
+    cout << "\n";
+}
+
+void printPOT() {
+    cout << "\nPOT Table:\n";
+    cout << "Pseudo-Opcode\tNo. Of Operands\n";
+    for (auto it : pot) {
+        cout << it.first << "\t\t" << it.second << "\n";
+    }
+    cout << "\n";
+}
+
+void put_MOT() {
+    ifstream file("MOT.txt");
+    string line;
+    if (!file.is_open()) {
+        cerr << "Error: Unable to open MOT.txt\n";
+        return;
+    }
+    while (getline(file, line)) {
+        stringstream ss(line);
+        string mnemonic;
+        int opcode, operands;
+        ss >> mnemonic >> opcode >> operands;
+        mot_table[mnemonic] = opcode;
+        mot.push_back(MOT(mnemonic, opcode, operands));
+    }
+    printMOT();
+}
+
+void put_POT() {
+    ifstream file("POT.txt");
+    string line;
+    if (!file.is_open()) {
+        cerr << "Error: Unable to open POT.txt\n";
+        return;
+    }
+    while (getline(file, line)) {
+        stringstream ss(line);
+        string opcode;
+        int operands;
+        ss >> opcode >> operands;
+        pot[opcode] = operands;
+    }
+    printPOT();
+}
+
+void take_input() {
+    ifstream file("inputt.txt");
+    string line;
+    int ct = 2;
+    while (getline(file, line)) {
+        istringstream iss(line);
+        string token;
+        vector<string> temp;
+        while (iss >> token) {
+            temp.push_back(token);
+        }
+        if (temp.size() == 2) {
+            maintable.push_back(MainTable(lineNumber, "", temp[0], temp[1], location_count, ""));
+            location_count += ct;
+        } else if (temp.size() == 3) {
+            sym_table[temp[0]] = location_count;
+            maintable.push_back(MainTable(lineNumber, temp[0], temp[1], temp[2], location_count, ""));
+            location_count += ct;
+        } else if (temp[0] == "STOP") {
+            maintable.push_back(MainTable(lineNumber, "", temp[0], "", location_count, ""));
+            ct = 1;
+            location_count += ct;
+            ct = 2;
+        }
+        lineNumber++;
+    }
+}
+
+void secondPass() {
+    for (auto &i : maintable) {
+        string mnemonic = i.mnemonic;
+        string operand = i.operand;
+        int opcode = mot_table[mnemonic];
+        int location = sym_table[operand];
+
+        i.output = to_string(opcode) + "_" + to_string(location);
+    }
+}
+
+#include <iomanip>
+
+void printMainTable() {
+    cout << "\nMain Table:\n";
+    cout << setw(5) << "Line" << setw(10) << "Label" << setw(10) << "Mnemonic" << setw(10) << "Operand" << setw(10) << "Location" << setw(10) << "Output" << endl;
+    for (auto it : maintable) {
+        cout << setw(5) << it.line << setw(10) << it.label << setw(10) << it.mnemonic << setw(10) << it.operand << setw(10) << it.location << setw(10) << it.output << endl;
+    }
+    cout << "\n";
+}
+
+
+void printSymTable() {
+    cout << "\nSymbol Table:\n";
+    cout << "Symbol\tAddress\n";
+    for (auto it : sym_table) {
+        cout << it.first << "\t" << it.second << endl;
+    }
+    cout << "\n";
+}
+
+int main() {
+    put_MOT();
+    put_POT();
+    take_input();
+    printSymTable();
+    secondPass();
+    printMainTable();
+    return 0;
+}
+
+Input codes:
+
+mot.txt:
+
+ADD 1 1
+SUB 2 1
+MULT 3 1
+JMP 4 1
+JNEG 5 1
+JPOS 6 1
+JZ 7 1
+LOAD 8 1
+STORE 9 1
+READ 10 1
+WRITE 11 1
+STOP 12 1
+
+pot.txt:
+
+DB 2
+DW 2
+ORG 1
+ENDP 0
+CONST 2
+END 0
+
+input.txt:
+READ N
+LOAD ZERO
+STORE COUNT
+STORE SUM
+LOOP READ X
+LOAD X
+ADD SUM
+STORE SUM
+LOAD COUNT
+ADD ONE
+STORE COUNT
+SUB N
+JZ OUTER
+JMP LOOP
+OUTER WRITE SUM
+STOP
+ENDP
+ZERO CONST 0
+ONE CONST 1
+SUM DB 1
+COUNT DB 1
+N DB 1
+X DB 1
+END

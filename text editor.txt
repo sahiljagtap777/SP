@@ -1,0 +1,81 @@
+import tkinter as tk
+from tkinter import font
+from tkinter import filedialog, messagebox, simpledialog
+
+def new_file():
+    text.delete('1.0', tk.END)
+
+def open_file():
+    file_path = filedialog.askopenfilename()
+    if file_path:
+        with open(file_path, 'r') as file:
+            text.delete('1.0', tk.END)
+            text.insert(tk.END, file.read())
+
+def save_file():
+    file_path = filedialog.asksaveasfilename(defaultextension=".txt")
+    if file_path:
+        with open(file_path, 'w') as file:
+            file.write(text.get('1.0', tk.END))
+
+def copy_text():
+    text.clipboard_clear()
+    text.clipboard_append(text.selection_get())
+
+def cut_text():
+    copy_text()
+    text.delete('sel.first', 'sel.last')
+
+def paste_text():
+    text.insert(tk.INSERT, text.clipboard_get())
+
+def find_text():
+    target = simpledialog.askstring("Find", "Enter text to find:")
+    if target:
+        start = text.search(target, tk.INSERT, stopindex=tk.END)
+        if start:
+            end = f"{start}+{len(target)}c"
+            text.tag_remove(tk.SEL, '1.0', tk.END)
+            text.tag_add(tk.SEL, start, end)
+            text.mark_set(tk.INSERT, end)
+            text.see(tk.INSERT)
+
+def replace_text():
+    find_text()
+    replace = simpledialog.askstring("Replace", "Enter text to replace with:")
+    if replace:
+        text.delete(tk.SEL_FIRST, tk.SEL_LAST)
+        text.insert(tk.INSERT, replace)
+
+root = tk.Tk()
+root.title("Simple Text Editor")
+
+text = tk.Text(root)
+text.pack(expand=True, fill='both')
+
+menu_bar_font = font.Font(family="Helvetica", size=12) # Define font for menu bar labels
+
+menu_bar = tk.Menu(root, font=menu_bar_font)
+
+file_menu_font = font.Font(family="Helvetica", size=12, weight="bold") # Define font for File menu label
+file_menu = tk.Menu(menu_bar, tearoff=0, font=file_menu_font)
+file_menu.add_command(label="New", command=new_file)
+file_menu.add_command(label="Open", command=open_file)
+file_menu.add_command(label="Save", command=save_file)
+file_menu.add_separator()
+file_menu.add_command(label="Exit", command=root.quit)
+menu_bar.add_cascade(label="File", menu=file_menu)
+
+edit_menu_font = font.Font(family="Helvetica", size=12, weight="bold") # Define font for Edit menu label
+edit_menu = tk.Menu(menu_bar, tearoff=0, font=edit_menu_font)
+edit_menu.add_command(label="Copy", command=copy_text)
+edit_menu.add_command(label="Cut", command=cut_text)
+edit_menu.add_command(label="Paste", command=paste_text)
+edit_menu.add_separator()
+edit_menu.add_command(label="Find", command=find_text)
+edit_menu.add_command(label="Replace", command=replace_text)
+menu_bar.add_cascade(label="Edit", menu=edit_menu)
+
+root.config(menu=menu_bar)
+
+root.mainloop()

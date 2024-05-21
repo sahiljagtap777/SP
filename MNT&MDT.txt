@@ -1,0 +1,119 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class Mntandmdt {
+    private static Map<Integer, String> mdt = new HashMap<>();
+    private static List<List<String>> mnt = new ArrayList<>();
+
+    public static void pass1(List<String> lines) {
+        int mntIndex = 1;
+        int mdtIndex = 0;
+        boolean inCodeSection = false;
+
+        // Storage in MNT and MDT tables
+        for (String line : lines) {
+            // Check if the line contains "macro"
+            if (line.contains("macro")) {
+                String name = line.substring(6).trim();
+                List<String> temp = new ArrayList<>();
+                temp.add(String.valueOf(mntIndex));
+                temp.add(name);
+                temp.add(String.valueOf(mdtIndex));
+                mnt.add(temp);
+                mntIndex++;
+            } else if (line.equals(".code")) {
+                inCodeSection = true;
+            } else if (line.equals("endp") && inCodeSection) {
+                inCodeSection = false;
+            } else if (!line.isEmpty() && !inCodeSection) {
+                // Store lines in MDT if not in the .code section
+                mdt.put(mdtIndex, line);
+                mdtIndex++;
+            }
+        }
+
+        // Output MNT Table
+        System.out.println("\nMNT Table:");
+        System.out.println("Index   | Name        | MDT Index");
+        for (List<String> x : mnt) {
+            System.out.println(x.get(0) + "       | " + x.get(1) + "        | " + x.get(2));
+        }
+
+        // Output MDT Table
+        System.out.println("\nMDT Table:");
+        System.out.println("Index   | Card");
+        for (int i = 0; i < mdtIndex; i++) {
+            System.out.println(i + "       | " + mdt.get(i));
+        }
+    }
+
+    public static void main(String[] args) {
+        try (BufferedReader reader = new BufferedReader(new FileReader("input.txt"))) {
+            List<String> lines = new ArrayList<>();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                lines.add(line);
+            }
+
+            pass1(lines);
+        } catch (IOException e) {
+            System.err.println("Error opening file for reading!");
+            e.printStackTrace();
+        }
+    }
+}
+
+INPUT CODE:
+macro ABC
+load a
+sub h
+add b
+mend
+
+macro PQR
+sub b
+store d
+mend
+
+macro XYZ
+load l
+sub s
+store st
+mend
+
+.code
+PQR
+store m,p
+XYZ
+ABC
+endp
+
+or 
+macro ABC &a,&h,&b
+load &a
+sub &h
+add &b
+mend
+
+macro PQR &b,&d
+sub &b
+store &d
+mend
+
+macro XYZ &l,&s,&o
+load &l
+sub &s
+mul &o
+mend
+
+.code
+PQR 2, 3
+XYZ 5, 6, 4
+ABC 8,9,10
+endp
+
